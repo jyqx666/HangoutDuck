@@ -11,6 +11,7 @@
 # 这里的 2048 只是装舵盘前的中位；xgoduck_ref_zero 是 xgoduck 那台机器的标定值，仅供参考。
 #
 # 限位取自 xgoduck MJCF 的关节 range（度），运行时再乘 soft_limit_factor 留余量。
+# home_deg 与仿真的 HOME 完全一致（膝关节 ∓0.28° 也照抄），策略观测的「关节角 - home」才对得上。
 
 servo:
   model: hls1910
@@ -27,13 +28,13 @@ joints:
   - {name: left_hip_yaw,    id: 10, sign: -1, zero: 2048, home_deg:   0.0, min_deg: -12.6, max_deg:  25.8, xgoduck_ref_zero: 2236}
   - {name: left_hip_roll,   id: 11, sign: -1, zero: 2048, home_deg:  -5.0, min_deg: -22.0, max_deg:  22.0, xgoduck_ref_zero: 2005}
   - {name: left_hip_pitch,  id: 12, sign: -1, zero: 2048, home_deg: -24.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 1912}
-  - {name: left_knee,       id: 13, sign: -1, zero: 2048, home_deg:   0.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 1866}
+  - {name: left_knee,       id: 13, sign: -1, zero: 2048, home_deg: -0.28, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 1866}
   - {name: left_ankle,      id: 14, sign: -1, zero: 2048, home_deg:  24.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 1945}
   # ---- 右腿 ----
   - {name: right_hip_yaw,   id: 20, sign: -1, zero: 2048, home_deg:   0.0, min_deg: -25.8, max_deg:  12.6, xgoduck_ref_zero: 2127}
   - {name: right_hip_roll,  id: 21, sign: -1, zero: 2048, home_deg:   5.0, min_deg: -22.0, max_deg:  22.0, xgoduck_ref_zero: 2135}
   - {name: right_hip_pitch, id: 22, sign: -1, zero: 2048, home_deg:  24.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 1914}
-  - {name: right_knee,      id: 23, sign: -1, zero: 2048, home_deg:   0.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 2228}
+  - {name: right_knee,      id: 23, sign: -1, zero: 2048, home_deg:  0.28, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 2228}
   - {name: right_ankle,     id: 24, sign: -1, zero: 2048, home_deg: -24.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 2206}
 
 imu:
