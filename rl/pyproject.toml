@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hangoutduck-rl"
+version = "0.1.0"
+description = "HangoutDuck 下半身（10 自由度）行走任务，基于 xgoduck_rl / mjlab"
+requires-python = ">=3.12, <3.13"
+# 依赖 mjlab_microduck（xgoduck_rl），由 scripts/setup.sh 装进同一个环境，这里不重复声明
+dependencies = []
+
+[project.entry-points."mjlab.tasks"]
+hangoutduck = "hangoutduck_rl.tasks"
+
+[tool.setuptools.packages.find]
+include = ["hangoutduck_rl*"]
