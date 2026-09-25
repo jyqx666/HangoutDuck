@@ -227,7 +227,8 @@ def _run_controller(args, controller_name: str, **kwargs) -> int:
     elif args.imu_port:
         imu = WitImu(args.imu_port, args.imu_baud)
         imu.start()
-    controller = CONTROLLERS[controller_name](cfg, **kwargs)
+    factory = kwargs.pop("factory", None) or CONTROLLERS[controller_name]
+    controller = factory(cfg, **kwargs)
     limits = SafetyLimits(max_tilt_deg=None if args.no_tilt_check else 60.0)
     log_path = None
     if not args.no_log:
@@ -262,6 +263,19 @@ def cmd_sweep(args) -> int:
 
 def cmd_run(args) -> int:
     return _run_controller(args, args.controller)
+
+
+def cmd_policy(args) -> int:
+    """运行 rl 分支导出的 ONNX 行走策略。"""
+    from .runtime.policy import PolicyController
+
+    if not args.fake and not args.imu_port:
+        print("policy needs the IMU: pass --imu-port (or --fake)")
+        return 1
+    return _run_controller(
+        args, "policy", factory=PolicyController, onnx_path=args.onnx,
+        command=(args.vx, args.vy, args.wz), action_alpha=args.action_alpha,
+    )
 
 
 # ---- 测量 -----------------------------------------------------------------
@@ -446,6 +460,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--controller", default="stand")
     add_run_args(p)
     p.set_defaults(func=cmd_run)
+
+    p = sub.add_parser("policy", help="运行 RL 策略（rl 分支导出的 ONNX）")
+    p.add_argument("--onnx", required=True)
+    p.add_argument("--vx", type=float, default=0.0, help="前进速度指令 m/s（训练范围 ±0.4）")
+    p.add_argument("--vy", type=float, default=0.0, help="侧向速度指令 m/s（±0.3）")
+    p.add_argument("--wz", type=float, default=0.0, help="转向角速度指令 rad/s（±1.0）")
+    p.add_argument("--action-alpha", type=float, default=0.0, help="动作低通系数，0 = 不滤波")
+    add_run_args(p)
+    p.set_defaults(func=cmd_policy)
 
     p = sub.add_parser("bench-bus", help="验收 A2：同步读丢包率")
     p.add_argument("--hz", type=float, default=100.0)

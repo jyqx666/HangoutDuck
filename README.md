@@ -84,7 +84,8 @@ hduck bench-loop --hz 50 --seconds 10
 | WP4 舵机驱动层 | ✅ 代码与测试完成，待真机验证 |
 | WP5 IMU 接入 | ✅ WIT 驱动与滤波完成，待到货 |
 | WP9 Nano 运行时 | ✅ 框架完成（stand / sweep） |
-| WP3、WP8 仿真与 RL | 见 `rl` 分支 |
+| WP3 下半身仿真模型 | ✅ 见 `rl/`（躯干质量待实称） |
+| WP8 RL 下半身策略 | 任务与部署链路已通，待在显卡上正式训练，见 `rl/README.md` |
 | WP6 装配标定、WP7 保底步态 | 未开始 |
 
 ## 致谢与许可
