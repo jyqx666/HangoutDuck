@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+build/
+dist/
+
+# 运行日志（hduck 默认写到 logs/）
+logs/
+*.npz
