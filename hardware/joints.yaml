@@ -1,0 +1,44 @@
+# HangoutDuck 关节表 —— 全仓库唯一真源
+#
+# 只做下半身：两条腿各 5 个关节，共 10 个飞特 1910。
+# 关节名与 xgoduck_rl / microduck_rl 的 MJCF 完全一致，舵机 ID 沿用 xgoduck：
+#   10–14 左腿，20–24 右腿（头颈 30–34 本阶段不装）。
+#
+# 角度约定（与仿真一致）：
+#   joint_deg = (ticks - zero) * 360 / 4096 * sign
+#   joint_deg = 0 对应 MJCF 里的 CAD 零位；home_deg 是站立姿态。
+# zero 的真实值由 `hduck calibrate` 写入 hardware/calibration.yaml，
+# 这里的 2048 只是装舵盘前的中位；xgoduck_ref_zero 是 xgoduck 那台机器的标定值，仅供参考。
+#
+# 限位取自 xgoduck MJCF 的关节 range（度），运行时再乘 soft_limit_factor 留余量。
+
+servo:
+  model: hls1910
+  baudrate: 1000000
+  ticks_per_rev: 4096
+  # HLS1910 临时 PD（RAM，地址 50/51，掉电恢复）。xgoduck 运行值 P=6 D=20。
+  # 若 `hduck dump` 发现你们的舵机没有这两个寄存器，把 run_pd 删掉。
+  run_pd: [6, 20]
+
+soft_limit_factor: 0.9
+
+joints:
+  # ---- 左腿 ----
+  - {name: left_hip_yaw,    id: 10, sign: -1, zero: 2048, home_deg:   0.0, min_deg: -12.6, max_deg:  25.8, xgoduck_ref_zero: 2236}
+  - {name: left_hip_roll,   id: 11, sign: -1, zero: 2048, home_deg:  -5.0, min_deg: -22.0, max_deg:  22.0, xgoduck_ref_zero: 2005}
+  - {name: left_hip_pitch,  id: 12, sign: -1, zero: 2048, home_deg: -24.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 1912}
+  - {name: left_knee,       id: 13, sign: -1, zero: 2048, home_deg:   0.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 1866}
+  - {name: left_ankle,      id: 14, sign: -1, zero: 2048, home_deg:  24.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 1945}
+  # ---- 右腿 ----
+  - {name: right_hip_yaw,   id: 20, sign: -1, zero: 2048, home_deg:   0.0, min_deg: -25.8, max_deg:  12.6, xgoduck_ref_zero: 2127}
+  - {name: right_hip_roll,  id: 21, sign: -1, zero: 2048, home_deg:   5.0, min_deg: -22.0, max_deg:  22.0, xgoduck_ref_zero: 2135}
+  - {name: right_hip_pitch, id: 22, sign: -1, zero: 2048, home_deg:  24.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 1914}
+  - {name: right_knee,      id: 23, sign: -1, zero: 2048, home_deg:   0.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 2228}
+  - {name: right_ankle,     id: 24, sign: -1, zero: 2048, home_deg: -24.0, min_deg: -90.0, max_deg:  90.0, xgoduck_ref_zero: 2206}
+
+imu:
+  # IMU 坐标轴到机体坐标系（MJCF trunk_base：x 朝前、y 朝左、z 朝上）的映射。
+  # 例：["+z", "-x", "-y"] 表示 机体x = IMU z，机体y = -IMU x，机体z = -IMU y
+  # （这是 xgoduck 那块 QMI8658 的装法）。装好后用 `hduck imu` 核对：
+  #   平放静止 → 重力约 [0, 0, -1]；机头朝下 → gx > 0；右侧朝下 → gy < 0。
+  axis_map: ["+x", "+y", "+z"]
