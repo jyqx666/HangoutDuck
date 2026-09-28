@@ -1,8 +1,9 @@
-"""HangoutDuck 下半身行走任务。
+"""HangoutDuck 行走任务：10 个腿部关节可动，头颈是固定件。
 
 直接复用 xgoduck 的 velocity 配方（奖励、域随机化、课程都不变），只做两件事：
-1. 机器人换成下半身模型（10 个关节）；
-2. 去掉所有和头相关的项：头部/身体姿态指令、对应的观测、奖励、事件和课程。
+1. 机器人换成 HangoutDuck 模型（头颈焊死在 home 角度，只剩 10 个关节）；
+2. 去掉头颈关节相关的项：头部/身体姿态指令、对应的观测、奖励和课程。
+   头颈的质心随机化保留（头还在，只是不能动），用来覆盖实物头部重量的不确定。
 
 策略观测因此是 39 维：
   [0:3]   base_ang_vel      机体系角速度 rad/s
@@ -31,11 +32,10 @@ ACTION_DIM = 10
 _HEAD_COMMANDS = ("head_pose", "body_pose")
 _HEAD_OBS_TERMS = ("head_command", "body_command")
 _HEAD_REWARDS = ("head_pose_tracking", "head_pose_bias", "body_pose_tracking")
-_HEAD_EVENTS = ("randomize_head_com",)
-_HEAD_CURRICULA = ("head_pose_range", "body_pose_range", "head_com_range", "head_pose_bias_weight")
+_HEAD_CURRICULA = ("head_pose_range", "body_pose_range", "head_pose_bias_weight")
 
 
-def strip_head_terms(cfg):
+def strip_head_joint_terms(cfg):
     for name in _HEAD_COMMANDS:
         cfg.commands.pop(name, None)
     for group in cfg.observations.values():
@@ -43,8 +43,6 @@ def strip_head_terms(cfg):
             group.terms.pop(name, None)
     for name in _HEAD_REWARDS:
         cfg.rewards.pop(name, None)
-    for name in _HEAD_EVENTS:
-        cfg.events.pop(name, None)
     for name in _HEAD_CURRICULA:
         cfg.curriculum.pop(name, None)
     return cfg
@@ -53,7 +51,7 @@ def strip_head_terms(cfg):
 def make_hangoutduck_velocity_env_cfg(play: bool = False, rough: bool = False):
     cfg = _xgoduck_velocity_cfg(play=play, rough=rough)
     cfg.scene.entities = {"robot": HANGOUTDUCK_WALK_ROBOT_CFG}
-    return strip_head_terms(cfg)
+    return strip_head_joint_terms(cfg)
 
 
 # 日志在 logs/rsl_rl/hangoutduck_velocity/

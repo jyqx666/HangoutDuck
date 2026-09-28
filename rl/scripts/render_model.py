@@ -1,4 +1,4 @@
-"""把下半身模型渲染成图片/GIF，用于汇报和标定参考。不需要显卡。
+"""把 HangoutDuck 模型渲染成图片/GIF，用于汇报和标定参考。不需要显卡。
 
 没有显示器的机器用虚拟显示运行：
     cd rl/third_party/xgoduck_rl
@@ -6,10 +6,10 @@
         uv run python ../../scripts/render_model.py --out ../../../docs/sim
 
 输出：
-  hangoutduck_home.png   下半身模型，站姿（home）
-  hangoutduck_zero.png   全部关节为 0 的机械零位（标定时要摆的姿态）
-  compare_side.png       侧视对比：左 xgoduck（带头），右 HangoutDuck；红线 = 质心，蓝点 = 双脚中心
-  stand_test.gif         两台机器用位置 PD 保持站姿 3 秒（左 xgoduck，右 HangoutDuck）
+  hangoutduck_home.png   HangoutDuck（头颈固定，10 个腿关节），站姿（home）
+  hangoutduck_zero.png   腿部关节全部为 0 的机械零位（标定时要摆的姿态）
+  compare_side.png       侧视对比：左 保留头（固定），右 去掉头；红线 = 质心，蓝点 = 双脚中心
+  stand_test.gif         两者用位置 PD 保持站姿 3 秒（左 保留头，右 去掉头）
 """
 
 from __future__ import annotations
@@ -24,8 +24,6 @@ from PIL import Image
 
 from hangoutduck_rl import robot as hd
 from mjlab_microduck.robot import xgoduck_constants as xgo
-
-XGODUCK_HOME = {**hd.HOME_JOINT_POS, "neck_pitch": 0.3491, "head_pitch": 0.3491, "head_yaw": 0.0, "head_roll": 0.0}
 
 BODY_RGBA = np.array([0.91, 0.58, 0.23, 1.0])  # 躯干：橙
 LEG_RGBA = np.array([0.86, 0.85, 0.82, 1.0])  # 腿：暖灰
@@ -130,18 +128,18 @@ def main() -> None:
     hd_data = mujoco.MjData(hd_model)
 
     set_pose(hd_model, hd_data, hd.HOME_JOINT_POS, hd.STAND_Z)
-    Image.fromarray(render(hd_model, hd_data, camera([0.0, 0.0, 0.08], 0.42, 135, -18), W, H)).save(out / "hangoutduck_home.png")
+    Image.fromarray(render(hd_model, hd_data, camera([0.0, 0.0, 0.15], 0.66, 135, -14), W, H)).save(out / "hangoutduck_home.png")
 
     set_pose(hd_model, hd_data, {n: 0.0 for n in hd.LEG_JOINTS}, hd.STAND_Z + 0.02)
-    Image.fromarray(render(hd_model, hd_data, camera([0.0, 0.0, 0.09], 0.42, 135, -12), W, H)).save(out / "hangoutduck_zero.png")
+    Image.fromarray(render(hd_model, hd_data, camera([0.0, 0.0, 0.16], 0.66, 135, -10), W, H)).save(out / "hangoutduck_zero.png")
 
     # 侧视对比（从机器人右侧看，x 朝前 = 画面向左）
     SW, SH = 900, 1100
-    xg_model = build(xgo.get_walk_spec(), SW, SH, alpha=0.35)
+    xg_model = build(hd.get_walk_spec(), SW, SH, alpha=0.35)
     xg_data = mujoco.MjData(xg_model)
-    hd_side = build(hd.get_walk_spec(), SW, SH, alpha=0.35)
+    hd_side = build(hd.remove_head(xgo.get_walk_spec()), SW, SH, alpha=0.35)
     hd_side_data = mujoco.MjData(hd_side)
-    set_pose(xg_model, xg_data, XGODUCK_HOME, hd.STAND_Z)
+    set_pose(xg_model, xg_data, hd.HOME_JOINT_POS, hd.STAND_Z)
     set_pose(hd_side, hd_side_data, hd.HOME_JOINT_POS, hd.STAND_Z)
     side = camera([0.02, 0.0, 0.10], 0.48, -90, -8)
     left = render(xg_model, xg_data, side, SW, SH, markers=True)
@@ -151,10 +149,10 @@ def main() -> None:
 
     # 站立测试 GIF
     GW, GH = 480, 560
-    xg_g = build(xgo.get_walk_spec(), GW, GH, alpha=0.45)
-    hd_g = build(hd.get_walk_spec(), GW, GH, alpha=0.45)
+    xg_g = build(hd.get_walk_spec(), GW, GH, alpha=0.45)
+    hd_g = build(hd.remove_head(xgo.get_walk_spec()), GW, GH, alpha=0.45)
     runs = []
-    for model, pose in ((xg_g, XGODUCK_HOME), (hd_g, hd.HOME_JOINT_POS)):
+    for model, pose in ((xg_g, hd.HOME_JOINT_POS), (hd_g, hd.HOME_JOINT_POS)):
         data = mujoco.MjData(model)
         set_pose(model, data, pose, hd.STAND_Z)
         runs.append((model, data))
