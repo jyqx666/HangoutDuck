@@ -43,6 +43,17 @@ uv run python ../../scripts/check_model.py   # 关节顺序、质量、质心、
 uv run python ../../scripts/smoke_test.py    # 观测 39 维、动作 10 维、观测各段顺序
 ```
 
+## 渲染图片（汇报 / 标定参考）
+
+```bash
+cd rl/third_party/xgoduck_rl
+MUJOCO_GL=glfw xvfb-run -a -s "-screen 0 1920x1080x24" \
+    uv run python ../../scripts/render_model.py --out ../../../docs/sim
+```
+
+生成站姿图、机械零位图（标定时要摆的姿态）、与 xgoduck 的侧视对比（红线为质心），以及 3 秒站立测试 GIF。
+有显示器的电脑去掉 `xvfb-run ...` 那一段即可。仓库里已放了一份：`docs/sim/`。
+
 ## 训练
 
 ```bash
@@ -108,6 +119,7 @@ rl/
   scripts/train.sh           训练
   scripts/check_model.py     模型检查（质量、质心、站立）
   scripts/smoke_test.py      任务自检（维度、顺序）
+  scripts/render_model.py    渲染模型图片和站立 GIF
   third_party/               setup.sh 克隆的 xgoduck_rl（不进版本库）
 hangoutduck/runtime/policy.py  真机上运行 ONNX 策略（hduck policy）
 ```
