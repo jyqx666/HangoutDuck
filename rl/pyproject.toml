@@ -15,3 +15,6 @@ hangoutduck = "hangoutduck_rl.tasks"
 
 [tool.setuptools.packages.find]
 include = ["hangoutduck_rl*"]
+
+[tool.setuptools.package-data]
+hangoutduck_rl = ["*.yaml"]

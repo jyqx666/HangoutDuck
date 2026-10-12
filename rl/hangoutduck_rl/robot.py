@@ -9,7 +9,8 @@
 from __future__ import annotations
 
 import math
-from typing import Dict, Optional
+from dataclasses import replace
+from typing import Dict, Optional, Tuple
 
 import mujoco
 import numpy as np
@@ -17,16 +18,17 @@ from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 
 from mjlab_microduck.robot import xgoduck_constants as xgo
 
+from . import sim_params
+
 NECK_ROOT_BODY = "neck"
 HEAD_BODIES = ("neck", "neck_pitch", "yaw_roll_motion", "jaw_soft")
 
-# 头颈关节焊死的角度（rad），即 xgoduck 的 home 姿态
-HEAD_FIXED_POS: Dict[str, float] = {
-    "neck_pitch": 0.3491,
-    "head_pitch": 0.3491,
-    "head_yaw": 0.0,
-    "head_roll": 0.0,
-}
+# 所有需要按实物确认的参数（质量、头部角度、舵机增益、电压、延迟、摩擦、指令范围）都在 sim_params.yaml。
+# 现在是 xgoduck 的已知值；实测后改那个文件、换 version，再重新训练。
+PARAMS = sim_params.load()
+
+# 头颈关节焊死的角度（rad），默认是 xgoduck 的 home 姿态
+HEAD_FIXED_POS: Dict[str, float] = dict(PARAMS.head_fixed_rad)
 
 # 与 main 分支 hardware/joints.yaml 的顺序一致，也是策略动作/观测里的关节顺序
 LEG_JOINTS = (
@@ -34,16 +36,11 @@ LEG_JOINTS = (
     "right_hip_yaw", "right_hip_roll", "right_hip_pitch", "right_knee", "right_ankle",
 )
 
-# ---- 需要按实物修改的参数 ----------------------------------------------------
+# 躯干 / 头颈质量（kg）和躯干质心偏移（m），来自 sim_params.yaml；质量为 None 表示沿用 xgoduck。
 # 改完用 `python rl/scripts/check_model.py` 看整机质量和质心。
-#
-# 躯干（trunk_base）质量，kg：称「躯干打印件 + 躯干上的一切（IMU、线材、螺丝），不含腿和头」。
-# None 表示沿用 xgoduck 的值（0.238 kg，是它按整机 0.8 kg 缩放出来的）。
-TRUNK_MASS_KG: Optional[float] = None
-# 头颈总质量，kg（neck、neck_pitch、yaw_roll_motion、jaw_soft 四个 body 合计）。
-# None 表示沿用 xgoduck 的 0.251 kg，其中包含 4 个颈/头舵机；
-# 我们的头不装舵机，实物会更轻，装好后称重填写（各 body 按比例缩放）。
-HEAD_MASS_KG: Optional[float] = None
+TRUNK_MASS_KG: Optional[float] = PARAMS.trunk_mass_kg
+HEAD_MASS_KG: Optional[float] = PARAMS.head_mass_kg
+TRUNK_COM_OFFSET_M: Tuple[float, float, float] = PARAMS.trunk_com_offset_m
 
 
 def _scale_body_mass(body, scale: float) -> None:
@@ -61,6 +58,7 @@ def freeze_head(
     spec: mujoco.MjSpec,
     trunk_mass_kg: Optional[float] = None,
     head_mass_kg: Optional[float] = None,
+    trunk_com_offset_m: Tuple[float, float, float] = (0.0, 0.0, 0.0),
 ) -> mujoco.MjSpec:
     """原地修改 spec：删掉颈/头的关节和执行器，头颈按 HEAD_FIXED_POS 焊在躯干上。
 
@@ -77,9 +75,11 @@ def freeze_head(
                 raise ValueError(f"{joint.name}: expected a z-axis hinge at the body origin")
             body.quat = _rotate_about_local_z(body.quat, HEAD_FIXED_POS[joint.name])
             spec.delete(joint)
+    trunk = spec.body("trunk_base")
     if trunk_mass_kg is not None:
-        trunk = spec.body("trunk_base")
         _scale_body_mass(trunk, trunk_mass_kg / trunk.mass)
+    if any(trunk_com_offset_m):
+        trunk.ipos = np.asarray(trunk.ipos) + np.asarray(trunk_com_offset_m)
     if head_mass_kg is not None:
         bodies = [spec.body(n) for n in HEAD_BODIES]
         scale = head_mass_kg / sum(b.mass for b in bodies)
@@ -98,11 +98,11 @@ def remove_head(spec: mujoco.MjSpec) -> mujoco.MjSpec:
 
 
 def get_walk_spec() -> mujoco.MjSpec:
-    return freeze_head(xgo.get_walk_spec(), TRUNK_MASS_KG, HEAD_MASS_KG)
+    return freeze_head(xgo.get_walk_spec(), TRUNK_MASS_KG, HEAD_MASS_KG, TRUNK_COM_OFFSET_M)
 
 
 def get_standup_spec() -> mujoco.MjSpec:
-    return freeze_head(xgo.get_standup_spec(), TRUNK_MASS_KG, HEAD_MASS_KG)
+    return freeze_head(xgo.get_standup_spec(), TRUNK_MASS_KG, HEAD_MASS_KG, TRUNK_COM_OFFSET_M)
 
 
 _DEG24 = math.radians(24)
@@ -130,12 +130,23 @@ HOME_FRAME = EntityCfg.InitialStateCfg(
     joint_vel={".*": 0.0},
 )
 
+# HLS1910 的 BAM 执行器模型沿用 xgoduck 的辨识结果；固件 P、供电电压、指令延迟取 sim_params.yaml
+_VIN_LO, _VIN_HI = PARAMS.supply_voltage_v
+ACTUATORS = replace(
+    xgo.actuators,
+    kp_fw=PARAMS.servo_kp,
+    vin_range=(_VIN_LO, _VIN_HI),
+    vin_min=min(xgo.actuators.vin_min, _VIN_LO - 0.4),  # 带载压降的下限，保持在供电范围以下
+    delay_min_lag=PARAMS.command_delay_steps[0],
+    delay_max_lag=PARAMS.command_delay_steps[1],
+)
+
 HANGOUTDUCK_WALK_ROBOT_CFG = EntityCfg(
     spec_fn=get_walk_spec,
     init_state=HOME_FRAME,
     collisions=(xgo.XGODUCK_COLLISION,),
     articulation=EntityArticulationInfoCfg(
-        actuators=(xgo.actuators,),
+        actuators=(ACTUATORS,),
         soft_joint_pos_limit_factor=0.9,
     ),
 )
@@ -145,7 +156,7 @@ HANGOUTDUCK_STANDUP_ROBOT_CFG = EntityCfg(
     init_state=HOME_FRAME,
     collisions=(xgo.XGODUCK_COLLISION,),
     articulation=EntityArticulationInfoCfg(
-        actuators=(xgo.actuators,),
+        actuators=(ACTUATORS,),
         soft_joint_pos_limit_factor=0.9,
     ),
 )

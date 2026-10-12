@@ -30,11 +30,30 @@
 脚跟只在踝关节后约 20 mm，去掉头会让质心明显后移。所以仿真保留头颈，**真机也要装一个固定的头**
 （打印件，不装舵机），质量和位置尽量接近仿真，否则仿真和真机对不上。
 
-需要按实物修改 `hangoutduck_rl/robot.py` 里的两个参数，然后重跑 `check_model.py`：
+## 仿真参数：先用已知数据训练，确认后改参数重跑
 
-- `TRUNK_MASS_KG`：躯干（不含腿和头）的实称质量；
-- `HEAD_MASS_KG`：头颈实称质量。xgoduck 的 0.251 kg 含 4 个舵机，我们不装舵机，实物会更轻。
-  如果头太轻导致质心后移，可以在头里加配重。
+所有需要按实物确认的参数集中在 **`hangoutduck_rl/sim_params.yaml`**，现在全部是 xgoduck 的已知值（`status: assumed`）：
+
+| 参数 | 现在的值 | 影响 |
+|---|---|---|
+| `trunk_mass_kg` / `trunk_com_offset_mm` | xgoduck 躯干（0.238 kg，含电池和主控） | 模型质量、质心 |
+| `head_mass_kg` / `head_fixed_deg` | xgoduck 头颈（0.251 kg，含 5 个舵机）/ 20°、20° | 模型质量、质心 |
+| `servo_kp` | 5 | 舵机模型；**必须等于真机 `hardware/joints.yaml` 的 run_pd 第一个数** |
+| `supply_voltage_v` | 7.4–8.0 V | 舵机模型（速度、力矩随电压变） |
+| `command_delay_steps` | 3–6 个物理步（15–30 ms） | 指令延迟随机化 |
+| `foot_friction` | 0.4–1.5 | 地面摩擦随机化 |
+| `cmd_lin_vel_x` / `cmd_lin_vel_y` / `cmd_ang_vel_z` | ±0.4 / ±0.3 m/s，±1.0 rad/s | 训练的速度指令范围 |
+
+流程：
+
+1. 现在直接训练（下面「训练」一节），得到第一版策略 `v0-xgoduck-defaults`；
+2. 某项实测或定下来后，改它的 `value`，`status` 改成 `measured` 或 `decided`，`source` 写明来源；
+3. 把文件开头的 `version` 换个新名字（如 `v1-weighed`），跑 `check_model.py` 看整机质量、质心和各项状态；
+4. 重新训练。新的 run 目录名和导出的 ONNX 元数据（`sim_params_version`、`sim_params_unconfirmed`、`servo_kp`）
+   都带新 version，旧策略不会混淆。
+
+质量为 `null` 表示沿用 xgoduck；填了实称值后，该部件的质量和惯量按比例缩放。如果头太轻导致质心后移，可以在头里加配重。
+文件格式由主仓库的测试 `tests/test_sim_params.py` 检查。
 
 ## 环境（训练电脑：Linux + NVIDIA 显卡）
 
@@ -52,7 +71,7 @@ rl/scripts/setup.sh
 
 ```bash
 cd rl/third_party/xgoduck_rl
-uv run python ../../scripts/check_model.py   # 关节顺序、质量、质心、站立
+uv run python ../../scripts/check_model.py   # 关节顺序、质量、质心、站立，以及仿真参数各项状态
 uv run python ../../scripts/smoke_test.py    # 观测 39 维、动作 10 维、观测各段顺序
 ```
 
@@ -118,7 +137,9 @@ hduck policy --onnx walk.onnx --imu-port /dev/hduck_imu --vx 0.1          # 落�
 - 任务能建出来并步进，观测 39 维、动作 10 维、各段顺序正确；
 - 训练 2 次迭代正常，checkpoint 和 ONNX 正常导出，ONNX 元数据符合真机运行时的检查；
 - 该 ONNX 在 `hduck --fake policy` 里以 50 Hz 跑通；
-- xgoduck 原版任务同样能训练（对照）。
+- xgoduck 原版任务同样能训练（对照）；
+- `sim_params.yaml` 的质量、质心偏移、舵机 P / 电压 / 延迟、摩擦、指令范围都会写进模型和任务；
+  run 目录名和 ONNX 元数据带参数 version。
 
 **没有验证**：在显卡上完整训练出能走的策略（这里没有 GPU），以及任何 sim2real 效果。
 
@@ -126,8 +147,10 @@ hduck policy --onnx walk.onnx --imu-port /dev/hduck_imu --vx 0.1          # 落�
 
 ```
 rl/
-  hangoutduck_rl/robot.py    模型（头颈固定）、home 姿态、TRUNK_MASS_KG / HEAD_MASS_KG（待实称）
-  hangoutduck_rl/tasks.py    任务注册：Mjlab-Velocity-{Flat,Rough}-HangoutDuck
+  hangoutduck_rl/sim_params.yaml  需要按实物确认的参数（现在是 xgoduck 的值）
+  hangoutduck_rl/sim_params.py    读取并校验上面的文件
+  hangoutduck_rl/robot.py    模型（头颈固定）、home 姿态、执行器
+  hangoutduck_rl/tasks.py    任务注册：Mjlab-Velocity-{Flat,Rough}-HangoutDuck；摩擦、指令范围、ONNX 元数据
   scripts/setup.sh           准备环境
   scripts/train.sh           训练
   scripts/check_model.py     模型检查（质量、质心、站立）

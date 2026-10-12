@@ -17,14 +17,16 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import replace
 
+from mjlab.rl.exporter_utils import attach_metadata_to_onnx
 from mjlab.tasks.registry import register_mjlab_task
 
 # 导入 mjlab_microduck.tasks 会注册上游全部任务，并提供 xgoduck 的 velocity 配置
 from mjlab_microduck.tasks import MicroduckOnPolicyRunner, XgoduckRlCfg, _xgoduck_velocity_cfg
 
-from .robot import HANGOUTDUCK_WALK_ROBOT_CFG
+from .robot import HANGOUTDUCK_WALK_ROBOT_CFG, PARAMS
 
 OBS_DIM = 39
 ACTION_DIM = 10
@@ -48,17 +50,41 @@ def strip_head_joint_terms(cfg):
     return cfg
 
 
+def apply_sim_params(cfg, params=PARAMS):
+    """把 sim_params.yaml 里的地面摩擦和速度指令范围写进任务配置（质量、舵机等在 robot.py 里）。"""
+    cfg.events["foot_friction"].params["ranges"] = params.foot_friction
+    ranges = cfg.commands["twist"].ranges
+    ranges.lin_vel_x = params.cmd_lin_vel_x
+    ranges.lin_vel_y = params.cmd_lin_vel_y
+    ranges.ang_vel_z = params.cmd_ang_vel_z
+    return cfg
+
+
 def make_hangoutduck_velocity_env_cfg(play: bool = False, rough: bool = False):
     cfg = _xgoduck_velocity_cfg(play=play, rough=rough)
     cfg.scene.entities = {"robot": HANGOUTDUCK_WALK_ROBOT_CFG}
-    return strip_head_joint_terms(cfg)
+    return apply_sim_params(strip_head_joint_terms(cfg))
 
 
-# 日志在 logs/rsl_rl/hangoutduck_velocity/
+class HangoutduckOnPolicyRunner(MicroduckOnPolicyRunner):
+    """导出 ONNX 时多写几项元数据：用的哪套仿真参数，以及舵机 P（真机 run_pd 必须与之相同）。"""
+
+    def save(self, path: str, infos=None):
+        super().save(path, infos)
+        _, _, onnx_path = self._get_export_paths(path)
+        if os.path.exists(onnx_path):
+            attach_metadata_to_onnx(str(onnx_path), {
+                "sim_params_version": PARAMS.version,
+                "sim_params_unconfirmed": PARAMS.unconfirmed(),
+                "servo_kp": PARAMS.servo_kp,
+            })
+
+
+# 日志在 logs/rsl_rl/hangoutduck_velocity/，目录名带上仿真参数的 version
 HangoutduckRlCfg = replace(
     XgoduckRlCfg,
     experiment_name="hangoutduck_velocity",
-    run_name="hangoutduck",
+    run_name=f"hangoutduck-{PARAMS.version}",
 )
 
 register_mjlab_task(
@@ -66,7 +92,7 @@ register_mjlab_task(
     env_cfg=make_hangoutduck_velocity_env_cfg(),
     play_env_cfg=make_hangoutduck_velocity_env_cfg(play=True),
     rl_cfg=HangoutduckRlCfg,
-    runner_cls=MicroduckOnPolicyRunner,
+    runner_cls=HangoutduckOnPolicyRunner,
 )
 
 register_mjlab_task(
@@ -74,5 +100,5 @@ register_mjlab_task(
     env_cfg=make_hangoutduck_velocity_env_cfg(rough=True),
     play_env_cfg=make_hangoutduck_velocity_env_cfg(play=True, rough=True),
     rl_cfg=HangoutduckRlCfg,
-    runner_cls=MicroduckOnPolicyRunner,
+    runner_cls=HangoutduckOnPolicyRunner,
 )

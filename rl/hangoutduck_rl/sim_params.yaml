@@ -1,0 +1,89 @@
+# HangoutDuck 仿真 / 训练参数 —— 所有需要按实物确认的量都在这里
+#
+# 现在先用已知数据（xgoduck 的值）训练；某一项实测或定下来以后：
+#   1. 改它的 value，把 status 改成 measured（实测）或 decided（小组决定），source 写清楚怎么得到的；
+#   2. 把 version 改成一个新名字，例如 v1-weighed；
+#   3. 跑 rl/scripts/check_model.py 看整机质量、质心和各项状态；
+#   4. 重新训练：rl/scripts/train.sh。
+# 训练日志目录名和导出的 ONNX 元数据都带 version，每个策略用的是哪套参数一查便知。
+#
+# status：assumed = 还是 xgoduck / 默认值，没按实物确认；measured = 实测；decided = 小组已定
+# check：对应 sim2real 待确认清单里的编号
+
+version: v0-xgoduck-defaults
+
+params:
+  trunk_mass_kg:
+    value: null  # null = 沿用 xgoduck 的 0.238 kg
+    status: assumed
+    source: xgoduck 躯干质量（按整机 0.8 kg 分配，xgoduck 机身里有电池和主控）
+    note: 称躯干打印件 + 躯干上的一切（IMU、线材、螺丝、配重），不含腿和头
+    check: D3 D6
+
+  trunk_com_offset_mm:
+    value: [0.0, 0.0, 0.0]  # 躯干质心相对 xgoduck 模型的偏移，机体系 x 前 / y 左 / z 上
+    status: assumed
+    source: 与 xgoduck 相同
+    note: 加配重或机身里的东西和 xgoduck 不一样时填写
+    check: D6
+
+  head_mass_kg:
+    value: null  # null = 沿用 xgoduck 的 0.251 kg（含 5 个舵机：4 个颈 / 头关节 + 1 个嘴）
+    status: assumed
+    source: xgoduck 头颈质量
+    note: 我们的头不装舵机，用假舵机块或支架代替；装好后称 neck 以上的总质量
+    check: A1 D4
+
+  head_fixed_deg:
+    value: {neck_pitch: 20.0, head_pitch: 20.0, head_yaw: 0.0, head_roll: 0.0}
+    status: assumed
+    source: xgoduck 的 home 姿态
+    note: 实物头部固定件必须按这个角度装
+    check: A1
+
+  servo_kp:
+    value: 5
+    status: assumed
+    source: xgoduck_rl 的 BAM 模型 kp_fw=5
+    note: 必须等于真机 hardware/joints.yaml 里 run_pd 的第一个数（那里目前写的是 6，待统一）
+    check: B3
+
+  supply_voltage_v:
+    value: [7.4, 8.0]  # 训练时在这个范围内随机，并模拟带载压降
+    status: assumed
+    source: xgoduck（2S 18650 供电）
+    note: 改成你们实际供电的电压范围
+    check: A3
+
+  command_delay_steps:
+    value: [3, 6]  # 物理步长 5 ms，即 15–30 ms
+    status: assumed
+    source: xgoduck
+    note: 真机「读传感器 → 推理 → 写舵机」的总延迟要落在这个范围内
+    check: F3
+
+  foot_friction:
+    value: [0.4, 1.5]
+    status: assumed
+    source: xgoduck
+    note: 演示地面 + TPU 鞋底的摩擦系数要在范围内
+    check: A6 D7
+
+  cmd_lin_vel_x:
+    value: [-0.4, 0.4]  # m/s，前进
+    status: assumed
+    source: xgoduck
+    note: 演示用不到的速度可以缩小范围，步态会更稳
+    check: A5
+
+  cmd_lin_vel_y:
+    value: [-0.3, 0.3]  # m/s，侧移
+    status: assumed
+    source: xgoduck
+    check: A5
+
+  cmd_ang_vel_z:
+    value: [-1.0, 1.0]  # rad/s，转向
+    status: assumed
+    source: xgoduck
+    check: A5

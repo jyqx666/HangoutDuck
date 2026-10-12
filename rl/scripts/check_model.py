@@ -19,6 +19,7 @@ import mujoco
 import numpy as np
 
 from hangoutduck_rl import robot as hd
+from hangoutduck_rl import sim_params
 from mjlab_microduck.robot import xgoduck_constants as xgo
 
 XGODUCK_HOME = {
@@ -96,12 +97,15 @@ def main() -> int:
     if set(r["hinge"]) != set(hd.LEG_JOINTS):
         print(f"\nERROR: unexpected joints left in model: {sorted(set(r['hinge']) - set(hd.LEG_JOINTS))}")
         ok = False
-    if hd.TRUNK_MASS_KG is None and hd.HEAD_MASS_KG is None and not np.allclose(r["com"], ref["com"], atol=1e-4):
+    same_as_xgoduck = (hd.TRUNK_MASS_KG is None and hd.HEAD_MASS_KG is None and not any(hd.TRUNK_COM_OFFSET_M)
+                       and all(abs(hd.HEAD_FIXED_POS[j] - XGODUCK_HOME[j]) < 1e-3 for j in hd.HEAD_FIXED_POS))
+    if same_as_xgoduck and not np.allclose(r["com"], ref["com"], atol=1e-4):
         print(f"\nERROR: fixed-head COM {r['com']} differs from xgoduck at home {ref['com']}; head frozen at wrong angle?")
         ok = False
-    if hd.TRUNK_MASS_KG is None or hd.HEAD_MASS_KG is None:
-        print("\nnote: TRUNK_MASS_KG / HEAD_MASS_KG not set; masses are still xgoduck's. Weigh the real trunk and head "
-              "and set them in rl/hangoutduck_rl/robot.py")
+    print("\n" + sim_params.summary(hd.PARAMS))
+    if hd.PARAMS.unconfirmed():
+        print("note: 'assumed' entries still use xgoduck values; update rl/hangoutduck_rl/sim_params.yaml "
+              "as they get measured, bump its version, then retrain")
     print("\nmodel check:", "OK" if ok else "FAILED")
     return 0 if ok else 1
 
