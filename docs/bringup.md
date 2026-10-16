@@ -98,7 +98,7 @@ hduck stand --imu-port /dev/hduck_imu --duration 60            # 落地，开摔
 
 `hduck walk` 运行 `hangoutduck/runtime/gait.py` 里的手写步态：快步频（约 3 步/秒）原地换脚并向前迈，
 脚的轨迹用腿部逆运动学换成关节角；接了 IMU 时再加两个小修正（前后倾时用踝回正、侧倒时摆动脚往倒的一侧迈）。
-默认参数在 `rl` 分支的 sim2sim 里挑过，仿真里 20 步前进约 10 cm，见 `rl/README.md`。
+默认参数在 `rl` 分支的 sim2sim 里挑过，仿真里 20 步前进约 10 cm，详见 `rl` 分支的 `rl/README.md`。
 
 先在电脑上看仿真效果（`rl` 分支）：
 
