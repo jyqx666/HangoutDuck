@@ -3,7 +3,7 @@
 小组复刻 [Microduck](https://github.com/pollen-robotics/microduck) 的双足小鸭子，舵机换成国产**飞特 1910**，
 机械和关节布局参考已经用 1910 做过一遍的 [xgoduck](https://github.com/LuwuDynamics/xgoduck_hardware)。
 
-**当前阶段（展示前）**：只做下半身（两条腿 × 5 自由度 = 10 个舵机），主控是装在机身上的树莓派 5，拴线只供电。
+**当前阶段（展示前）**：只做下半身（两条腿 × 5 自由度 = 10 个舵机），主控树莓派 5 和电池都装在机身上，不拴线，电脑通过 Wi-Fi 登录树莓派。
 展示底线是手写步态在平地连续走 ≥10 步；RL 策略并行推进，展示时在仿真里能走即可。
 完整的范围、非目标和验收标准见 [需求规格](docs/deep-interview-hangoutduck-phase1.md)。
 
