@@ -17,7 +17,7 @@ params:
     value: null  # null = 沿用 xgoduck 的 0.238 kg
     status: assumed
     source: xgoduck 躯干质量（按整机 0.8 kg 分配，xgoduck 机身里有电池和主控）
-    note: 称躯干打印件 + 躯干上的一切（树莓派 5 + 散热片、5 V 降压模块、舵机驱动板、IMU、线材、螺丝、配重），不含腿和头
+    note: 称躯干打印件 + 躯干上的一切（电池、树莓派 5 + 散热片、5 V 降压模块、舵机驱动板、IMU、电源开关、线材、螺丝、配重），不含腿和头
     check: D3 D6
 
   trunk_com_offset_mm:
@@ -52,7 +52,7 @@ params:
     value: [7.4, 8.0]  # 训练时在这个范围内随机，并模拟带载压降
     status: assumed
     source: xgoduck（2S 18650 供电）
-    note: 改成你们实际供电的电压范围
+    note: 电池装在机身上，电压随电量下降（2S：满电 8.4 V，用到约 7.0 V 停）。确认电池型号后改成实际使用的范围
     check: A3
 
   command_delay_steps:
