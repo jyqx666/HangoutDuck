@@ -6,7 +6,8 @@
 ## 0. 准备
 
 - 树莓派环境已按 `docs/raspberry_pi_setup.md` 装好，舵机动作时不欠压（`vcgencmd get_throttled` 为 `0x0`）。
-- 电源设为 **7.4 V、限流 2 A**，先只接驱动板，不接舵机。
+- 单舵机测试最好用可限流的桌面电源（**7.4 V、限流 2 A**）；直接用电池时先查清接线没有短路、电源开关在手边。
+  先只接驱动板，不接舵机。
 - 吊架搭好：整机测试时机身吊起，脚离地。
 
 ## 1. 单舵机验收（A1）
@@ -110,7 +111,7 @@ cd rl/third_party/xgoduck_rl && uv run python ../../scripts/sim2sim.py walk --vi
 
 ```bash
 hduck walk --steps 10 --no-tilt-check                          # 1. 吊架上，脚离地：看两腿动作是否对称、方向对不对
-hduck walk --steps 10 --imu-port /dev/hduck_imu                # 2. 落地，人在旁边扶着拴线，开摔倒检测
+hduck walk --steps 10 --imu-port /dev/hduck_imu                # 2. 落地，人在旁边护着、手能够到电源开关，开摔倒检测
 hduck walk --steps 20 --imu-port /dev/hduck_imu                # 3. 验收：平地连续走 ≥ 10 步
 ```
 
