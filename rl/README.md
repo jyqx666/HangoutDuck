@@ -119,7 +119,7 @@ uv run python scripts/export.py Mjlab-Velocity-Flat-HangoutDuck \
     --onnx-file logs/rsl_rl/hangoutduck_velocity/<run>/<run>.onnx
 ```
 
-拷到 Nano 上（Nano 需要 `pip install onnxruntime`），先吊架、再落地：
+拷到树莓派上（需要 `pip install -e '.[policy]'` 装 onnxruntime，见 `docs/raspberry_pi_setup.md`），先吊架、再落地：
 
 ```bash
 hduck policy --onnx walk.onnx --imu-port /dev/hduck_imu --no-tilt-check   # 吊架上，零速度指令

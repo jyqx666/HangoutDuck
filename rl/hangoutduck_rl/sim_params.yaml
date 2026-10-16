@@ -17,7 +17,7 @@ params:
     value: null  # null = 沿用 xgoduck 的 0.238 kg
     status: assumed
     source: xgoduck 躯干质量（按整机 0.8 kg 分配，xgoduck 机身里有电池和主控）
-    note: 称躯干打印件 + 躯干上的一切（IMU、线材、螺丝、配重），不含腿和头
+    note: 称躯干打印件 + 躯干上的一切（树莓派 5 + 散热片、5 V 降压模块、舵机驱动板、IMU、线材、螺丝、配重），不含腿和头
     check: D3 D6
 
   trunk_com_offset_mm:

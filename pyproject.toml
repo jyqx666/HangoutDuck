@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hangoutduck"
 version = "0.1.0"
-description = "HangoutDuck 真机软件：飞特 1910 总线舵机驱动、IMU、Jetson Nano 50 Hz 运行时与调试工具"
+description = "HangoutDuck 真机软件：飞特 1910 总线舵机驱动、IMU、树莓派 50 Hz 运行时与调试工具"
 readme = "README.md"
-# Jetson Nano (JetPack 4.x, Ubuntu 18.04) 用 apt 装的 python3.8 即可运行
+# 树莓派 OS Bookworm（64 位）自带 Python 3.11
 requires-python = ">=3.8"
 dependencies = [
     "numpy",

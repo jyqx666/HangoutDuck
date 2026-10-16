@@ -1,6 +1,6 @@
 """读取 sim_params.yaml：仿真 / 训练里所有需要按实物确认的参数。
 
-只依赖 PyYAML，不依赖 mjlab，所以主仓库的测试（包括 Jetson 上的 python3.8）也能校验这个文件。
+只依赖 PyYAML，不依赖 mjlab，所以主仓库的测试（CI 里的 Python 3.8–3.12、树莓派上的 3.11）也能校验这个文件。
 """
 
 from __future__ import annotations

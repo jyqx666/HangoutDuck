@@ -3,7 +3,7 @@
 小组复刻 [Microduck](https://github.com/pollen-robotics/microduck) 的双足小鸭子，舵机换成国产**飞特 1910**，
 机械和关节布局参考已经用 1910 做过一遍的 [xgoduck](https://github.com/LuwuDynamics/xgoduck_hardware)。
 
-**当前阶段（展示前）**：只做下半身（两条腿 × 5 自由度 = 10 个舵机），Jetson Nano 放桌上拴线控制。
+**当前阶段（展示前）**：只做下半身（两条腿 × 5 自由度 = 10 个舵机），主控是装在机身上的树莓派 5，拴线只供电。
 展示底线是手写步态在平地连续走 ≥10 步；RL 策略并行推进，展示时在仿真里能走即可。
 完整的范围、非目标和验收标准见 [需求规格](docs/deep-interview-hangoutduck-phase1.md)。
 
@@ -11,7 +11,7 @@
 
 | 分支 | 放什么 |
 |---|---|
-| `main` | 真机相关：舵机驱动、IMU、Jetson Nano 运行时、调试工具、硬件文档 |
+| `main` | 真机相关：舵机驱动、IMU、树莓派上的运行时、调试工具、硬件文档 |
 | `rl` | 仿真与强化学习：10 个腿关节可动、头颈固定的模型，训练任务、策略导出与部署适配 |
 
 ## 目录
@@ -22,7 +22,7 @@ hardware/
   calibration.yaml   零位标定结果（hduck calibrate 生成）
   BOM.md             物料与采购建议
   wiring.md          接线图、ID 表
-hangoutduck/         Python 包（Python ≥ 3.8，Nano 可用）
+hangoutduck/         Python 包（Python ≥ 3.8；树莓派 OS Bookworm 自带 3.11）
   feetech/           飞特总线协议、驱动、FakeSerial（无硬件测试用）
   imu/               WIT 协议 IMU 驱动、重力方向互补滤波
   robot.py           关节角 ↔ 舵机刻度换算、整机同步读写
@@ -31,14 +31,14 @@ hangoutduck/         Python 包（Python ≥ 3.8，Nano 可用）
 tests/               pytest，全部基于假舵机，不需要硬件
 docs/
   deep-interview-hangoutduck-phase1.md   第一阶段需求规格
-  jetson_nano_setup.md                   Nano 环境（WP2）
-  bringup.md                             从单舵机到整机站立（WP4–WP6）
+  raspberry_pi_setup.md                  树莓派 5 环境（WP2）
+  bringup.md                             从单舵机到整机站立、保底步态（WP4–WP7）
 ```
 
 ## 快速开始
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate    # Nano 上用 python3.8，见 docs/jetson_nano_setup.md
+python3 -m venv .venv && source .venv/bin/activate    # 树莓派上见 docs/raspberry_pi_setup.md
 pip install -e '.[dev]'
 pytest -q
 
@@ -81,10 +81,10 @@ hduck bench-loop --hz 50 --seconds 10
 |---|---|
 | WP0 采购驱动板、IMU | 待下单 |
 | WP1 仓库、关节表、文档 | ✅ |
-| WP2 Nano 环境 | 文档就绪，待上机 |
+| WP2 树莓派环境 | 文档就绪（树莓派 5、64 位系统），待上机 |
 | WP4 舵机驱动层 | ✅ 代码与测试完成，待真机验证 |
 | WP5 IMU 接入 | ✅ WIT 驱动与滤波完成，待到货 |
-| WP9 Nano 运行时 | ✅ 框架完成（stand / sweep / walk / policy） |
+| WP9 树莓派运行时 | ✅ 框架完成（stand / sweep / walk / policy） |
 | WP3 仿真模型 | ✅ 见 `rl/`：头颈保留为固定件（躯干、头颈质量待实称） |
 | WP8 RL 行走策略 | 任务与部署链路已通，待在显卡上正式训练，见 `rl/README.md` |
 | WP7 保底步态 | 代码完成（`hduck walk`）；`rl` 分支的 sim2sim 里 20 步不摔、在 15 种硬件偏差下都能走，待真机 |
