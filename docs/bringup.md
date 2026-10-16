@@ -94,6 +94,39 @@ hduck stand --imu-port /dev/hduck_imu --duration 60            # 落地，开摔
 结束后看输出里的 `loop`（抖动）和日志 `logs/*.npz`（温度、跟踪误差）。
 运行中**按回车或 Ctrl-C 立即卸力**，温度、电压、丢包、倾角任一越界也会自动卸力。
 
+## 8. 保底步态（手写，不依赖 RL）
+
+`hduck walk` 运行 `hangoutduck/runtime/gait.py` 里的手写步态：快步频（约 3 步/秒）原地换脚并向前迈，
+脚的轨迹用腿部逆运动学换成关节角；接了 IMU 时再加两个小修正（前后倾时用踝回正、侧倒时摆动脚往倒的一侧迈）。
+默认参数在 `rl` 分支的 sim2sim 里挑过，仿真里 20 步前进约 10 cm，详见 `rl` 分支的 `rl/README.md`。
+
+先在电脑上看仿真效果（`rl` 分支）：
+
+```bash
+cd rl/third_party/xgoduck_rl && uv run python ../../scripts/sim2sim.py walk --video walk.mp4
+```
+
+真机上按顺序来：
+
+```bash
+hduck walk --steps 10 --no-tilt-check                          # 1. 吊架上，脚离地：看两腿动作是否对称、方向对不对
+hduck walk --steps 10 --imu-port /dev/hduck_imu                # 2. 落地，人在旁边扶着拴线，开摔倒检测
+hduck walk --steps 20 --imu-port /dev/hduck_imu                # 3. 验收：平地连续走 ≥ 10 步
+```
+
+不接 IMU 也能走（去掉 `--imu-port`），只是更晃，而且没有摔倒检测，人要守在旁边。
+参数用 `--param 名字=值` 覆盖，可以重复，名字见 `GaitParams`：
+
+| 现象 | 先调 |
+|---|---|
+| 走偏 | `turn_rad`（每个周期的转向，正 = 向左），一次改 ±0.1；仿真里小于 0.1 几乎没效果（脚底打滑），0.3 约每 20 步转 45–55°，超过 0.5 容易摔 |
+| 脚擦地、抬不起来 | `lift_m` 加大（默认 0.015）；或 `period_s` 稍微减小 |
+| 往前扑 / 往后坐 | `imu_pitch_gain`（默认 0.2）加减 0.1；没有 IMU 时用 `pitch_trim_rad`，一次只改 ±0.01 |
+| 左右晃得厉害 | `period_s` 在 0.3–0.4 之间试；`step_roll_gain`（默认 0.03） |
+| 走得太慢 | `step_length_m` 加大（默认 0.015），一次加 0.005 |
+
+仿真里这个步态对前后方向的平衡很敏感（例如 `pitch_trim_rad` 改 0.03 就会摔），真机上每次只改一个参数、改一点。
+
 ## 出问题时
 
 | 现象 | 先查 |

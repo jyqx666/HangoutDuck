@@ -10,7 +10,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 
 import numpy as np
 
@@ -62,9 +62,12 @@ def run(
     log_path: Optional[Path] = None,
     stop: Optional[StopSignal] = None,
     torque_off_at_end: bool = True,
+    loop: Optional[RateLoop] = None,
+    clock: Callable[[], float] = time.perf_counter,
 ) -> RunReport:
+    """loop / clock 默认是墙上时钟；sim2sim 传入仿真时钟和不睡眠的循环，比实时跑得快。"""
     stop = stop or StopSignal(listen_stdin=False)
-    loop = RateLoop(hz)
+    loop = loop or RateLoop(hz)
     safety = SafetyMonitor(limits or SafetyLimits(), robot.cfg.names)
     logger = RunLogger(robot.cfg.names)
     estimator = GravityEstimator(robot.cfg.imu_rotation()) if imu is not None else None
@@ -75,7 +78,7 @@ def run(
         raise RuntimeError(f"servos not answering: {missing}; check wiring and ids")
 
     reason, fault = "finished", None
-    t0 = time.perf_counter()
+    t0 = clock()
     t = 0.0
     try:
         robot.apply_run_pd()
@@ -83,10 +86,10 @@ def run(
         controller.reset(state)
         robot.set_torque(True)
         loop.wait()
-        t0 = time.perf_counter()
+        t0 = clock()
         period = 0.0
         while True:
-            t = time.perf_counter() - t0
+            t = clock() - t0
             state = robot.read_state()
             imu_obs = None
             if imu is not None and estimator is not None:
