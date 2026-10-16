@@ -337,7 +337,7 @@ def cmd_check_speed(args) -> int:
 
 
 def cmd_bench_loop(args) -> int:
-    """只测控制循环本身的定时精度（WP2：Nano 环境验收）。"""
+    """只测控制循环本身的定时精度（WP2：树莓派环境验收）。"""
     from .runtime.loop import RateLoop
 
     loop = RateLoop(args.hz)

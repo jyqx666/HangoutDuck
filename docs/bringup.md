@@ -5,7 +5,7 @@
 
 ## 0. 准备
 
-- Nano 环境已按 `docs/jetson_nano_setup.md` 装好。
+- 树莓派环境已按 `docs/raspberry_pi_setup.md` 装好，舵机动作时不欠压（`vcgencmd get_throttled` 为 `0x0`）。
 - 电源设为 **7.4 V、限流 2 A**，先只接驱动板，不接舵机。
 - 吊架搭好：整机测试时机身吊起，脚离地。
 
@@ -132,6 +132,6 @@ hduck walk --steps 20 --imu-port /dev/hduck_imu                # 3. 验收：平
 | 现象 | 先查 |
 |---|---|
 | scan 找不到舵机 | 电源是否打开；波特率（加 `--all-bauds`）；驱动板信号线是否接在 TTL 口 |
-| 偶发 `no reply` | USB 线质量；FTDI 延迟（见 Nano 文档）；驱动板是否回显（试 `--echo`） |
+| 偶发 `no reply` | USB 线质量；FTDI 延迟（见树莓派文档）；驱动板是否回显（试 `--echo`）；树莓派是否欠压 |
 | 上力瞬间抖一下 | 正常情况下不会：上力前会先把目标设成当前位置。若仍抖，降低 `run_pd` 的 P |
 | 关节越走越偏 | 舵盘打滑或零位标错，重新标该关节 |

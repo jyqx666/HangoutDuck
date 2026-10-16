@@ -11,7 +11,7 @@ import numpy as np
 class RateLoop:
     def __init__(self, hz: float, spin_s: float = 0.0005) -> None:
         self.period = 1.0 / hz
-        self.spin_s = spin_s  # 最后这一小段用忙等，sleep 的粒度在 Nano 上不够细
+        self.spin_s = spin_s  # 最后这一小段用忙等，sleep 的粒度在树莓派这类小板子上不够细
         self._next: Optional[float] = None
         self._last: Optional[float] = None
         self.periods: List[float] = []
