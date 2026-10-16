@@ -97,11 +97,22 @@ def attach_video(sim: Sim2Sim, path: str, fps: int = 25, size=(960, 540)):
 
     model, data = sim.plant.model, sim.plant.data
     model.vis.global_.offwidth, model.vis.global_.offheight = size
+    # 与汇报图同样的配色：躯干橙、腿灰、头颈蓝灰
+    trunk, neck = model.body("trunk_base").id, model.body("neck").id
+    for g in range(model.ngeom):
+        b = model.geom_bodyid[g]
+        if b == 0:
+            continue
+        head = b
+        while head > 0 and head != neck:
+            head = model.body_parentid[head]
+        model.geom_rgba[g] = ([0.91, 0.58, 0.23, 1.0] if b == trunk else
+                              [0.35, 0.45, 0.55, 1.0] if head == neck else [0.86, 0.85, 0.82, 1.0])
     renderer = mujoco.Renderer(model, height=size[1], width=size[0])
     cam = mujoco.MjvCamera()
     cam.type = mujoco.mjtCamera.mjCAMERA_TRACKING
     cam.trackbodyid = sim.plant.trunk
-    cam.distance, cam.elevation, cam.azimuth = 0.7, -15.0, 135.0
+    cam.distance, cam.elevation, cam.azimuth = 0.6, -18.0, 140.0
     writer = imageio_ffmpeg.write_frames(path, size, fps=fps, codec="libx264", pix_fmt_out="yuv420p", quality=7,
                                          macro_block_size=8)
     writer.send(None)

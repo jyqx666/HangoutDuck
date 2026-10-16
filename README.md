@@ -61,6 +61,7 @@ hduck bench-loop --hz 50 --seconds 10
 | `hduck state` | 各关节角度、温度、电压 |
 | `hduck sweep --joint left_knee` | 单关节摆动，核对方向 |
 | `hduck stand` | 平滑站到 home 并保持 |
+| `hduck walk --steps 20` | 保底步态：手写的开环行走（参数用 `--param 名字=值` 调） |
 | `hduck bench-bus` / `bench-loop` | 验收 A2 / A5 |
 | `hduck imu` | 核对 IMU 装向 |
 
@@ -83,10 +84,11 @@ hduck bench-loop --hz 50 --seconds 10
 | WP2 Nano 环境 | 文档就绪，待上机 |
 | WP4 舵机驱动层 | ✅ 代码与测试完成，待真机验证 |
 | WP5 IMU 接入 | ✅ WIT 驱动与滤波完成，待到货 |
-| WP9 Nano 运行时 | ✅ 框架完成（stand / sweep） |
+| WP9 Nano 运行时 | ✅ 框架完成（stand / sweep / walk / policy） |
 | WP3 仿真模型 | ✅ 见 `rl/`：头颈保留为固定件（躯干、头颈质量待实称） |
 | WP8 RL 行走策略 | 任务与部署链路已通，待在显卡上正式训练，见 `rl/README.md` |
-| WP6 装配标定、WP7 保底步态 | 未开始 |
+| WP7 保底步态 | 代码完成（`hduck walk`）；`rl` 分支的 sim2sim 里 20 步不摔、在 15 种硬件偏差下都能走，待真机 |
+| WP6 装配标定 | 未开始（等驱动板） |
 
 ## 致谢与许可
 

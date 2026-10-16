@@ -39,6 +39,7 @@ from . import robot as hd
 PHYSICS_DT = 0.005  # 与训练相同
 BAM_JSON = Path(xgo._HLS1910_JSON)
 FACTORY_P = 32  # 舵机 EEPROM 里的位置环 P（FakeServo 的出厂值）；运行时 run_pd 会写临时 P 覆盖它
+SETTLE_S = 0.5  # 开始前让机器人在地上站稳的时间
 
 
 @dataclass
@@ -52,6 +53,7 @@ class Hardware:
     vin_drop_gain: float = 0.1  # 带载压降（训练里在 0–0.2 之间随机）
     foot_friction: float = 1.0
     mass_scale: float = 1.0  # 整机质量缩放（所有部件同比例）
+    trunk_com_error_mm: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # 实物躯干质心比模型偏多少（躯干系）
     imu_tilt_deg: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # IMU 实际安装比 axis_map 多转的 roll/pitch/yaw
     imu_gyro_noise: float = 0.0  # 陀螺噪声标准差，rad/s
     imu_accel_noise: float = 0.0  # 加速度计噪声标准差，m/s²
@@ -80,9 +82,19 @@ def build_spec(hw: Hardware) -> Tuple[mujoco.MjSpec, float]:
                 b.mass = b.mass * hw.mass_scale
                 b.fullinertia = np.asarray(b.fullinertia) * hw.mass_scale
 
-    spec.worldbody.add_geom(name="floor", type=mujoco.mjtGeom.mjGEOM_PLANE, size=[0, 0, 0.05],
-                            rgba=[0.9, 0.9, 0.88, 1])
-    spec.worldbody.add_light(pos=[0, 0, 2], dir=[0, 0, -1], type=mujoco.mjtLightType.mjLIGHT_DIRECTIONAL)
+    if any(hw.trunk_com_error_mm):
+        trunk = spec.body("trunk_base")
+        trunk.ipos = np.asarray(trunk.ipos) + np.asarray(hw.trunk_com_error_mm) / 1000.0
+
+    # 外观（只影响录视频，不影响物理）：浅色棋盘格地面、渐变天空
+    spec.add_texture(name="grid", type=mujoco.mjtTexture.mjTEXTURE_2D, builtin=mujoco.mjtBuiltin.mjBUILTIN_CHECKER,
+                     rgb1=[0.93, 0.92, 0.88], rgb2=[0.84, 0.83, 0.78], width=512, height=512)
+    spec.add_material(name="grid", textures=["", "grid"], texrepeat=[20, 20], reflectance=0.0)
+    spec.add_texture(name="sky", type=mujoco.mjtTexture.mjTEXTURE_SKYBOX, builtin=mujoco.mjtBuiltin.mjBUILTIN_GRADIENT,
+                     rgb1=[0.97, 0.96, 0.93], rgb2=[0.82, 0.85, 0.89], width=512, height=512)
+    spec.worldbody.add_geom(name="floor", type=mujoco.mjtGeom.mjGEOM_PLANE, size=[2, 2, 0.05], material="grid")
+    spec.worldbody.add_light(pos=[0.3, -0.4, 1.2], dir=[-0.15, 0.25, -1.0],
+                             type=mujoco.mjtLightType.mjLIGHT_DIRECTIONAL, castshadow=True, diffuse=[0.7, 0.7, 0.7])
 
     bam = load_model(str(BAM_JSON))
     vin_hi = max(hd.PARAMS.supply_voltage_v)
@@ -162,6 +174,14 @@ class Plant:
         mujoco.mj_forward(self.model, self.data)
         self.servos.reset(self.data.qpos)
         self.bam.actuator.q_target_smooth = q0.copy()
+        # 先让机器人在地上站稳（舵机保持这个姿态 SETTLE_S 秒），再把时钟清零：
+        # 真机上电时也是静止放在地上，IMU 第一帧读到的是重力，而不是自由落体
+        self.bam.actuator.kp = np.full(len(self.names), float(FACTORY_P))
+        for _ in range(int(SETTLE_S / PHYSICS_DT)):
+            self.servos.update()
+            mujoco.mj_step(self.model, self.data)
+        self.data.time = 0.0
+        self.servos.last_ts = 0.0
         self.torque = np.zeros(len(self.names))
         self.torque_on = np.zeros(len(self.names), dtype=bool)
         self._pending: Deque[Tuple[np.ndarray, np.ndarray, np.ndarray]] = deque()

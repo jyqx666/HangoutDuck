@@ -129,6 +129,48 @@ hduck policy --onnx walk.onnx --imu-port /dev/hduck_imu --vx 0.1          # 落�
 `hduck policy` 启动时会检查 ONNX 元数据：关节顺序、观测各段顺序必须一致，home 姿态差 1° 以内，否则拒绝运行。
 真机 RL 是展示后的加分项（A9），前提是 IMU 装向（`hduck imu`）和关节方向（`hduck sweep`）都已核对。
 
+## sim2sim：真机程序在仿真里跑
+
+把 main 分支的真机控制程序（`hduck` 的 Robot、50 Hz 主循环、安全检查、控制器、RL 策略）**原样**接到 MuJoCo 上：
+飞特协议的假串口背后是仿真里的 HangoutDuck，IMU 读的是仿真里躯干上的陀螺仪和加速度计。
+和训练仿真一样的部分：同一个模型（含 `sim_params.yaml`）、5 ms 物理步长、碰撞设置、1910 的 BAM 舵机模型
+（电压、压降、反电动势）、指令延迟。舵机的固件 P 取部署程序实际写进寄存器的值（`joints.yaml` 的 `run_pd`）。
+不需要显卡，比实时快约 20 倍（录视频时约实时的 1/4）。
+
+```bash
+cd rl/third_party/xgoduck_rl
+uv run python ../../scripts/sim2sim.py walk                     # 保底步态，20 步
+uv run python ../../scripts/sim2sim.py walk --steps 60 --no-imu # 不接 IMU
+uv run python ../../scripts/sim2sim.py stand
+uv run python ../../scripts/sim2sim.py policy --onnx logs/rsl_rl/hangoutduck_velocity/<run>/<run>.onnx --vx 0.2
+uv run python ../../scripts/sim2sim.py xgoduck --vx 0.25        # 自检：xgoduck 预训练策略
+MUJOCO_GL=glfw xvfb-run -a -s "-screen 0 1280x720x24" \
+    uv run python ../../scripts/sim2sim.py walk --video walk.mp4 # 录视频（有显示器去掉 xvfb-run 那段）
+```
+
+结束时打印是否摔倒、前进距离、侧移、偏航、落地次数、最大倾角；摔倒返回非 0。
+
+**模拟硬件误差**（仿真里的「实物」故意和 `joints.yaml` 不一致），用来看控制器能承受多少：
+
+| 选项 | 模拟什么 |
+|---|---|
+| `--zero-error left_knee=3` | 某关节零位偏 3°（可重复） |
+| `--flip right_hip_roll` | 某关节转向接反 |
+| `--kp 5` | 舵机 P 改成 5（覆盖 `run_pd`） |
+| `--delay-steps 8` | 指令延迟 8×5 ms |
+| `--mass-scale 0.8` | 整机轻 20%（不加配重时的情况） |
+| `--friction 0.6` | 地面更滑 |
+| `--imu-tilt 0,5,0` / `--imu-noise 0.05` | IMU 装歪 / 有噪声 |
+| `--vin 7.2` | 供电电压 |
+
+**自检结果**（CPU 上）：xgoduck 的预训练策略经过真机程序的整条链路（飞特协议、BAM 舵机、P=6、20 ms 延迟、
+IMU 互补滤波），给 0.25 m/s 指令时 10 s 走了 1.75 m、最大倾角 3°，给 0 指令时原地站稳——和它在训练仿真里的表现一致，
+说明 sim2sim 搭得对。
+
+**保底步态**（main 分支 `hangoutduck/runtime/gait.py`，`hduck walk`）的默认参数就是在这里挑的：20 步前进约 10 cm、
+落地 26 次、最大倾角 12°；在 15 种硬件偏差下都不摔（见 gait.py 里 `GaitParams` 的说明）。
+腿部运动学（`hangoutduck/kinematics.py`）与模型的一致性用 `scripts/check_gait_kinematics.py` 核对。
+
 ## 已验证 / 未验证
 
 在没有显卡的机器上（CPU）验证过：
@@ -139,9 +181,11 @@ hduck policy --onnx walk.onnx --imu-port /dev/hduck_imu --vx 0.1          # 落�
 - 该 ONNX 在 `hduck --fake policy` 里以 50 Hz 跑通；
 - xgoduck 原版任务同样能训练（对照）；
 - `sim_params.yaml` 的质量、质心偏移、舵机 P / 电压 / 延迟、摩擦、指令范围都会写进模型和任务；
-  run 目录名和 ONNX 元数据带参数 version。
+  run 目录名和 ONNX 元数据带参数 version；
+- sim2sim：真机程序在 MuJoCo 上站立、跑 xgoduck 预训练策略、跑保底步态都正常（数字见上一节）。
 
-**没有验证**：在显卡上完整训练出能走的策略（这里没有 GPU），以及任何 sim2real 效果。
+**没有验证**：在显卡上完整训练出能走的策略（这里没有 GPU），以及任何 sim2real 效果——sim2sim 只能说明
+程序和仿真之间是通的，真机的舵机、摩擦、质量分布仍可能和模型不同。
 
 ## 目录
 
@@ -153,9 +197,13 @@ rl/
   hangoutduck_rl/tasks.py    任务注册：Mjlab-Velocity-{Flat,Rough}-HangoutDuck；摩擦、指令范围、ONNX 元数据
   scripts/setup.sh           准备环境
   scripts/train.sh           训练
+  hangoutduck_rl/sim2sim.py       sim2sim：飞特协议假串口 + MuJoCo（BAM 舵机）+ 仿真 IMU
+  hangoutduck_rl/xgoduck_policy.py  xgoduck 预训练策略的适配器（sim2sim 自检用）
+  scripts/sim2sim.py         sim2sim 命令行
+  scripts/check_gait_kinematics.py  核对保底步态的腿部运动学
   scripts/check_model.py     模型检查（质量、质心、站立）
   scripts/smoke_test.py      任务自检（维度、顺序）
   scripts/render_model.py    渲染模型图片和站立 GIF
-  third_party/               setup.sh 克隆的 xgoduck_rl（不进版本库）
+  third_party/               setup.sh 克隆的 xgoduck_rl、xgoduck_runtime_arduino（不进版本库）
 hangoutduck/runtime/policy.py  真机上运行 ONNX 策略（hduck policy）
 ```

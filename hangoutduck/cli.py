@@ -261,6 +261,18 @@ def cmd_sweep(args) -> int:
     )
 
 
+def cmd_walk(args) -> int:
+    """保底步态。参数用 --param key=value 覆盖，名字见 runtime/gait.py 的 GaitParams。"""
+    overrides = {}
+    for item in args.param or []:
+        key, sep, value = item.partition("=")
+        if not sep:
+            print(f"--param expects key=value, got {item!r}")
+            return 1
+        overrides[key.strip()] = float(value)
+    return _run_controller(args, "walk", steps=args.steps, **overrides)
+
+
 def cmd_run(args) -> int:
     return _run_controller(args, args.controller)
 
@@ -455,6 +467,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cycles", type=int, default=3)
     add_run_args(p)
     p.set_defaults(func=cmd_sweep)
+
+    p = sub.add_parser("walk", help="保底步态：手写的开环行走")
+    p.add_argument("--steps", type=int, default=20, help="走多少步（左右各算一步），然后停下")
+    p.add_argument("--param", action="append", help="步态参数 key=value，可重复，例如 --param step_length_m=0.01")
+    add_run_args(p)
+    p.set_defaults(func=cmd_walk)
 
     p = sub.add_parser("run", help="运行已注册的控制器")
     p.add_argument("--controller", default="stand")
